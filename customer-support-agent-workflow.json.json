@@ -1,0 +1,371 @@
+{
+  "name": "AI Customer Support Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "-from:me -subject:\"Approval Needed\" in:inbox"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -576,
+        -240
+      ],
+      "id": "8ccf6689-1d23-4c06-95d0-ba2966f27943",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QdbjOm8Xa1QgvhzJ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8095ade7-81d5-4385-aa63-8a5c35a9d1da",
+              "name": "senderEmail",
+              "value": "=   {{ $json.From.match(/<(.+)>/)?.[1] || $json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "2f7568af-f1ad-4525-82b1-5aab185bff21",
+              "name": "subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "1c2a1805-cda4-4e20-b2dd-9c0457255303",
+              "name": "customerEmail",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "249b7ed4-7527-4637-bae6-345c5df434d7",
+              "name": "threadId\t",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "1aa6965f-75db-40ec-9e22-078ad22cd43b",
+              "name": "messageId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -352,
+        -240
+      ],
+      "id": "ee2ed685-d5d8-430f-8da3-cc6a498abf87",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "customer-support-kb-v2",
+          "mode": "list",
+          "cachedResultName": "customer-support-kb-v2"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -128,
+        -240
+      ],
+      "id": "5601dcc1-46b4-4c57-8b76-6ee749f90a8b",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "udZwxkAHsJGnNmZm",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "Refund Policy: We offer refunds within 7 days of purchase if the product is unused and in original packaging.\n   \n   Shipping Time: Orders are delivered within 3-5 business days across the country.\n   \n   Support Hours: Our support team is available from 9 AM to 6 PM, Sunday to Thursday.\n   \n   Payment Methods: We accept credit card, debit card, and mobile banking (bKash, Nagad).\n   \n   Order Tracking: You can track your order using the tracking link sent to your email after purchase.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        16,
+        -16
+      ],
+      "id": "b1e00317-53f9-459e-8960-b44ad04bb61c",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        -16
+      ],
+      "id": "b8d881f5-b750-45d6-a84d-82ec82f870a5",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "qFAOWqPkWNi9qPXO",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a professional customer support agent for \"ElectroHut\", an online electronics retail company.\n\nRead the customer's email and answer their actual question directly.\n\nInstructions:\n- Use only the company information below. Do not invent facts, policies, numbers, or dates.\n- If the answer is not in the information below, politely say you don't have that detail right now and suggest they contact support during support hours.\n- Do not mention escalating to a human.\n- Do not mention \"knowledge base\", AI, or any internal system. Reply naturally like a human agent.\n- Reply in the same language the customer used.\n- Keep it concise (3-5 sentences), warm, and professional.\n- Write only the email body, with no subject line.\n- End with exactly:\nBest regards,\nElectroHut Support Team\n\nCompany Information:\n{{ $json.pageContent }}\n\nCustomer's Email:\nSubject: {{ $('Edit Fields').item.json.subject }}\nMessage: {{ $('Edit Fields').item.json.customerEmail }}\n\nWrite the email reply now:",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        224,
+        -240
+      ],
+      "id": "090eef36-d7f2-4861-9c89-b0eba2dfbdb8",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        -16
+      ],
+      "id": "5696a1a5-4c35-4f98-bbc9-127dd5babba1",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "qFAOWqPkWNi9qPXO",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "=your-email@example.com",
+        "subject": "=Approval Needed: Reply to {{ $('Edit Fields').item.json.senderEmail }}",
+        "message": "=Customer Email: {{ $('Edit Fields').item.json.customerEmail }}\n     \n     Proposed AI Reply:\n     {{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        -240
+      ],
+      "id": "b31c5aea-4e0f-4469-9dee-6c8867123891",
+      "name": "Send message and wait for response",
+      "webhookId": "57d26cf9-f8c6-4ab1-afaf-a6580877ab87",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QdbjOm8Xa1QgvhzJ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "12336748-eeed-4b64-a2e6-d754535ffb25",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        848,
+        -240
+      ],
+      "id": "6dbbd246-087e-40b9-98c4-3e341b981b52",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Edit Fields').item.json.senderEmail }}",
+        "subject": "=Re: {{ $('Edit Fields').item.json.subject }}",
+        "message": "={{ $('Basic LLM Chain').item.json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        -336
+      ],
+      "id": "3774b49b-7a89-4734-be6e-c93f5cdb54f2",
+      "name": "Send a message",
+      "webhookId": "fc067000-7f17-4717-8ec8-4e5774f763e3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QdbjOm8Xa1QgvhzJ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "52f9e2a6-7684-459c-98a3-8439327479be",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "63f22e7d515696890bb5b4dd9957561694174dcdbd7eee6eaf417677debfb1c9"
+  },
+  "nodeGroups": [],
+  "id": "H7iEXrIjYhE78hk3",
+  "tags": []
+}
